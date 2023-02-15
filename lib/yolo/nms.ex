@@ -1,6 +1,6 @@
 defmodule Yolo.NMS do
 
-  def nms(boxes) do
+  def nms(boxes, prob_thresh \\ 0.8, iou_thresh \\ 0.8) do
     probs =
       boxes
       |> Nx.slice_along_axis(4, 1, axis: 1)
@@ -14,21 +14,21 @@ defmodule Yolo.NMS do
       boxes_ordered
       |> Nx.to_batched(1)
       |> Stream.map(&Nx.to_flat_list/1)
-      |> Enum.take_while(fn [_, _, _, _, prob] -> prob > 0.8 end)
+      |> Enum.take_while(fn [_, _, _, _, prob] -> prob > prob_thresh end)
 
-    do_nms(above_thresh, [])
+    do_nms(above_thresh, [], iou_thresh)
   end
 
-  def do_nms([], results), do: results
+  def do_nms([], results, _iou_thresh), do: results
 
-  def do_nms([box1 | rest], results) do
+  def do_nms([box1 | rest], results, iou_thresh) do
     rest =
       rest
       |> Stream.map(fn box2 -> {box2, iou(box1, box2)} end)
-      |> Stream.reject(fn {_box2, iou} -> iou > 0.8 end)
+      |> Stream.reject(fn {_box2, iou} -> iou > iou_thresh end)
       |> Enum.map(fn {bbox2, _iou} -> bbox2 end)
 
-    do_nms(rest, [box1 | results])
+    do_nms(rest, [box1 | results], iou_thresh)
   end
 
   def iou([x1, y1, w1, h1 | _], [x2, y2, w2, h2 | _]) do
