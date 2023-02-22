@@ -12,6 +12,12 @@ defmodule YoloTest do
     Yolo.Impl.make(model_yaml)
   end
 
+  def load_image(path) do
+    v_image = Image.open!(path, access: :random)
+    {:ok, image} = Image.to_nx(v_image, shape: :hwc)
+    image
+  end
+
   @tag :skip
   test "greets the world" do
     path = "/home/hansihe/proj/ml/pricetag_yolov8_sparse/best.pt"
@@ -134,6 +140,17 @@ defmodule YoloTest do
 
     IO.inspect(Enum.count(boxes), label: :num_detections)
     IO.inspect(boxes)
+  end
+
+  test "foobar" do
+    path = "/home/hansihe/Downloads/20230127_102306.jpg"
+    v_image = Image.open!(path, access: :random)
+    {:ok, image} = Image.to_nx(v_image, shape: :hwc, backend: EXLA.Backend)
+
+    {resized_image, scale_config} = Yolo.Preprocess.preprocess(image, {3, 640, 640})
+
+    IO.inspect(resized_image)
+
   end
 
 end

@@ -1,22 +1,30 @@
 defmodule Yolo.NMS do
 
   def nms(boxes, prob_thresh \\ 0.8, iou_thresh \\ 0.8) do
-    probs =
-      boxes
-      |> Nx.slice_along_axis(4, 1, axis: 1)
-      |> Nx.reshape({:auto})
+    {_anchors, data} = Nx.shape(boxes)
 
-    boxes_ordered =
-      boxes
-      |> Nx.take(Nx.argsort(probs, direction: :desc))
+    (0..(data - 5))
+    |> Enum.map(fn idx ->
+      probs =
+        boxes
+        |> Nx.slice_along_axis(4 + idx, 1, axis: 1)
+        |> Nx.reshape({:auto})
 
-    above_thresh =
-      boxes_ordered
-      |> Nx.to_batched(1)
-      |> Stream.map(&Nx.to_flat_list/1)
-      |> Enum.take_while(fn [_, _, _, _, prob] -> prob > prob_thresh end)
+      argsort = Nx.argsort(probs, direction: :desc)
 
-    do_nms(above_thresh, [], iou_thresh)
+      boxes_ordered = Nx.take(Nx.slice_along_axis(boxes, 0, 4, axis: 1), argsort)
+      probs_ordered = Nx.new_axis(Nx.take(probs, argsort), 1)
+
+      concated = Nx.concatenate([boxes_ordered, probs_ordered], axis: 1)
+
+      above_thresh =
+        concated
+        |> Nx.to_batched(1)
+        |> Stream.map(&Nx.to_flat_list/1)
+        |> Enum.take_while(fn [_, _, _, _, prob] -> prob > prob_thresh end)
+
+      do_nms(above_thresh, [], iou_thresh)
+    end)
   end
 
   def do_nms([], results, _iou_thresh), do: results
